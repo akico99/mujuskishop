@@ -117,7 +117,7 @@
     <!-- 견적내기 -->
     <section id="viewQuote" class="grid">
       <div class="card">
-        <h2>0) 매장 선택</h2>
+        <h2>|매장 선택|</h2>
         <div class="seg" id="shopSeg">
         <label><input type="radio" name="shop" value="choice" checked> 초이스</label>
         <label><input type="radio" name="shop" value="sky"> 스카이</label>
@@ -125,6 +125,28 @@
         </div>
 
         <div style="height:14px"></div>
+        <h2>0) 기타사항 (질문/답변)</h2>
+
+        <div class="row">
+          <div class="field" style="max-width:220px;">
+            <label>질문 개수</label>
+            <select id="q_faqCount">
+              <option value="0" selected>0개</option>
+              <option value="1">1개</option>
+              <option value="2">2개</option>
+              <option value="3">3개</option>
+              <option value="4">4개</option>
+              <option value="5">5개</option>
+            </select>
+          </div>
+
+          <div class="field" style="min-width:240px;">
+            <label>안내</label>
+            <input type="text" value="선택한 개수만큼 질문/답변 입력란이 생성됩니다." readonly />
+          </div>
+        </div>
+
+        <div id="faqWrap" style="margin-top:10px;"></div>
         <h2>1) 이용일 / 인원</h2>
         <div class="row">
         <div class="field">
@@ -368,6 +390,13 @@
         <div class="field">
         <textarea id="q_memo" placeholder="예: 픽업 문의 / 사이즈 / 결제 방식 / 요청사항"></textarea>
         </div>
+
+        <h2>예약 링크</h2>
+
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="q_showReserveLink" />
+          견적에 예약 링크 포함
+        </label>
 
         <div style="height:14px"></div>
 
@@ -1074,6 +1103,54 @@
       $("q_warn").textContent = warns.join("\n");
     }
 
+    function renderFaqFields() {
+      const wrap = document.getElementById("faqWrap");
+      const countEl = document.getElementById("q_faqCount");
+      if (!wrap || !countEl) return;
+
+      const n = Number(countEl.value || 0);
+
+      // 기존 입력값 유지
+      const prev = [];
+      for (let i = 1; i <= 20; i++) {
+        const q = document.getElementById(`q_faq_q_${i}`)?.value || "";
+        const a = document.getElementById(`q_faq_a_${i}`)?.value || "";
+        prev.push({ q, a });
+      }
+
+      wrap.innerHTML = "";
+
+      for (let i = 1; i <= n; i++) {
+        const item = document.createElement("div");
+        item.className = "card";
+        item.style.padding = "12px";
+        item.style.marginTop = "10px";
+
+        const saved = prev[i - 1] || { q: "", a: "" };
+
+        item.innerHTML = `
+          <div class="row">
+            <div class="field" style="min-width:240px;">
+              <label>기타사항 ${i} - 고객 질문</label>
+              <textarea id="q_faq_q_${i}" placeholder="예: 소인 장비도 성인과 동일 구성인가요?">${saved.q}</textarea>
+            </div>
+            <div class="field" style="min-width:240px;">
+              <label>기타사항 ${i} - 답변</label>
+              <textarea id="q_faq_a_${i}" placeholder="예: 네, 동일 구성으로 준비되며 키/발사이즈 기준으로 맞춰드립니다.">${saved.a}</textarea>
+            </div>
+          </div>
+        `;
+        wrap.appendChild(item);
+      }
+
+      // 입력 변화 시 견적 텍스트 갱신
+      wrap.querySelectorAll("textarea").forEach(el => {
+        el.addEventListener("input", updateQuote);
+      });
+
+      updateQuote();
+    }
+
     function updateQuote() {
       enforceQuoteRules();
       const t = quoteTotals();
@@ -1101,7 +1178,30 @@
         lines.push(greeting);
         lines.push(""); // 한 줄 띄우기
         }
-        lines.push("요청해주신 내용 기준으로 아래와 같이 견적 안내드립니다.");
+        // --- 기타사항(Q/A) 출력 (입력된 쌍만) ---
+        const faqPairs = [];
+        const faqN = Number(document.getElementById("q_faqCount")?.value || 0);
+
+        for (let i = 1; i <= faqN; i++) {
+          const q = (document.getElementById(`q_faq_q_${i}`)?.value || "").trim();
+          const a = (document.getElementById(`q_faq_a_${i}`)?.value || "").trim();
+          if (q && a) faqPairs.push({ q, a });
+        }
+
+        if (faqPairs.length > 0) {
+          lines.push("작성해주신 문의사항에 대해 먼저 안내드립니다.");
+          lines.push("");
+          lines.push("[Q  &  A]");
+          lines.push("");
+          for (const p of faqPairs) {
+            lines.push(`Q. ${p.q}`);
+            lines.push(`A. ${p.a}`);
+            lines.push("");
+          }
+        }
+
+        // --- 견적 전환 문구 ---
+        lines.push("요청해주신 견적은 다음과 같습니다.");
         lines.push("");
         lines.push("[견적 안내]");        
 
@@ -1132,7 +1232,42 @@
         const memo = $("q_memo")?.value?.trim() || "";
 
         lines.push(`총 견적 금액: ${t.total.toLocaleString()}원`);
+        const showReserve = document.getElementById("q_showReserveLink")?.checked;
+        const shopVal = document.querySelector('input[name="shop"]:checked')?.value;
 
+        const RESERVE_LINKS = {
+          choice: {
+            home: "http://www.kgrc.co.kr/bbs/write.php?bo_table=04_02",
+            naver: "https://booking.naver.com/booking/5/bizes/791512/items/4701786",
+          },
+          sky: {
+            home: "https://www.mujusky.co.kr/bbs/write.php?bo_table=06_05",
+            naver: "https://booking.naver.com/booking/5/bizes/272888/items/4165761?",
+          },
+          national: {
+            home: "http://okmuju.com/bbs/write.php?bo_table=08",
+            naver: "https://booking.naver.com/booking/5/bizes/305178/items/3643073?",
+          },
+        };
+
+
+        if (showReserve && shopVal && RESERVE_LINKS[shopVal]) {
+          const links = RESERVE_LINKS[shopVal];
+
+          lines.push("");
+          lines.push("----------------------------------------------");
+          lines.push("예약은 아래 링크에서 진행 부탁드립니다.");
+          lines.push("가계약금 5만원 결제 후,");
+          lines.push("잔액은 이용 당일 현장 결제입니다.");
+          lines.push("");
+
+          lines.push("※ 예약하기");
+          lines.push(links.home);
+          lines.push("");
+
+          lines.push("*N페이 예약하기*");
+          lines.push(links.naver);
+        }
         lines.push("");
 
         if (memo) {
@@ -1247,6 +1382,8 @@
     });
 
     $("q_memo").addEventListener("input", updateQuote);
+    $("q_showReserveLink")?.addEventListener("change", updateQuote);
+    document.getElementById("q_showReserveLink")?.addEventListener("change", updateQuote);
 
     document.querySelectorAll('input[name="r_lift"]').forEach(r => {
       r.addEventListener("change", updateReserveOutput);
@@ -1445,7 +1582,14 @@
     updateReserveOutput();
     syncDayTypePill();
     syncClothLabel();
-    syncGlovesUI(); 
+    syncGlovesUI();
+    document.addEventListener("DOMContentLoaded", () => {
+      const countEl = document.getElementById("q_faqCount");
+      if (countEl) {
+        countEl.addEventListener("change", renderFaqFields);
+      }
+      renderFaqFields(); // 최초 1회 렌더 (0개면 아무것도 안 보임)
+    });
   </script>
 </body>
 </html>
