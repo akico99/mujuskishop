@@ -621,7 +621,27 @@
         </div>
 
         <div style="height:14px"></div>
-        <h2>3) 메모</h2>
+        
+        <div style="height:14px"></div>
+        <h2>3) 강습</h2>
+
+        <div class="step">
+          <div class="left">
+            <div class="name">강습 팀 수</div>
+            <div class="hint">1팀 = 170,000원 (주중/주말 동일)</div>
+          </div>
+
+          <div class="ctrl">
+            <button class="btn mini" data-step="r_lessonTeam" data-delta="-1">−</button>
+            <div class="count" id="r_lessonTeam">0</div>
+            <button class="btn mini" data-step="r_lessonTeam" data-delta="1">+</button>
+          </div>
+        </div>
+
+        <!-- 팀 수 1 이상일 때만 보이게 -->
+        <div id="r_lessonTeamsWrap" style="margin-top:10px;"></div>
+
+        <h2>4) 메모</h2>
         <div class="field">
           <textarea id="r_memo" placeholder="예: 픽업 문의 / 사이즈 / 결제 방식 / 요청사항"></textarea>
         </div>
@@ -652,6 +672,13 @@
   <div class="toast" id="toast">복사 완료</div>
 
   <script>
+
+// 금액 포맷 (원)
+function formatWon(n) {
+  const num = Number(n) || 0;
+  return num.toLocaleString("ko-KR") + "원";
+}
+
 // -------------------------
     // 가격표
     // -------------------------
@@ -892,7 +919,9 @@ function renderLessonTeams() {
       viewQuote.style.display = "none";
       syncDayTypePill();
       updateReserveOutput();
-    });
+    
+      renderReserveLessonTeams();
+});
 
     function syncDayTypePill() {
       // 현재 보이는 화면의 날짜 기준으로 상단 pill 표시
@@ -930,7 +959,12 @@ function renderLessonTeams() {
       }
 
 
-      if (isQuote) {
+      
+      if (id === "r_lessonTeam") {
+        renderReserveLessonTeams();
+}
+
+if (isQuote) {
         enforceQuoteRules();
         updateQuote();
       } else {
@@ -1510,7 +1544,87 @@ $("q_breakdown").textContent = lines.join("\n").trim();
     // -------------------------
     // 예약 화면 로직
     // -------------------------
-    $("r_date").addEventListener("change", () => {
+    
+
+    // -------------------------
+    // 예약 탭 강습 상태/렌더링
+    // -------------------------
+    const reserveLessonState = {};
+
+    function toggleReserveLessonLeaderWrap() {
+      const leaderWrap = document.getElementById("r_lessonLeaderWrap");
+      if (!leaderWrap) return;
+
+      const teamCount = readCount("r_lessonTeam");
+      leaderWrap.style.display = teamCount > 0 ? "" : "none";
+
+      if (teamCount === 0) {
+        const n = document.getElementById("r_lesson_name");
+        const p = document.getElementById("r_lesson_phone");
+        if (n) n.value = "";
+        if (p) p.value = "";
+      }
+    }
+
+    function renderReserveLessonTeams() {
+      const wrap = document.getElementById("r_lessonTeamsWrap");
+      if (!wrap) return;
+
+      const teamCount = readCount("r_lessonTeam");
+// 현재 값 저장
+      for (let i = 1; i <= 50; i++) {
+        const cntEl = document.getElementById(`r_lesson_${i}_cnt`);
+        if (!cntEl) break;
+
+        const timeEl = document.getElementById(`r_lesson_${i}_time`);
+        const typeEl = document.querySelector(`input[name="r_lesson_${i}_type"]:checked`);
+        reserveLessonState[i] = {
+          cnt: Number(cntEl.textContent || 1),
+          time: timeEl?.value || "오전",
+          type: typeEl?.value || "ski",
+        };
+      }
+
+      wrap.innerHTML = "";
+
+      for (let i = 1; i <= teamCount; i++) {
+        const saved = reserveLessonState[i] || { cnt: 1, time: "오전", type: "ski" };
+
+        const row = document.createElement("div");
+        row.className = "step";
+        row.style.marginTop = "8px";
+
+        row.innerHTML = `
+          <div class="left">
+            <div class="name">강습 ${i}팀</div>
+            <div class="hint">인원 / 시간 / 종목</div>
+          </div>
+
+          <div class="ctrl" style="flex-wrap:wrap; gap:8px;">
+            인원
+            <button class="btn mini" data-step="r_lesson_${i}_cnt" data-delta="-1">−</button>
+            <div class="count" id="r_lesson_${i}_cnt">${saved.cnt}</div>
+            <button class="btn mini" data-step="r_lesson_${i}_cnt" data-delta="1">+</button>
+
+            <select id="r_lesson_${i}_time" class="btn" style="padding:8px 10px;">
+              <option value="오전" ${saved.time==="오전"?"selected":""}>오전</option>
+              <option value="오후" ${saved.time==="오후"?"selected":""}>오후</option>
+              <option value="야간" ${saved.time==="야간"?"selected":""}>야간</option>
+            </select>
+
+            <label style="display:flex; align-items:center; gap:6px; margin-left:6px;">
+              <input type="radio" name="r_lesson_${i}_type" value="ski" ${saved.type==="ski"?"checked":""}> 스키
+            </label>
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="radio" name="r_lesson_${i}_type" value="board" ${saved.type==="board"?"checked":""}> 보드
+            </label>
+          </div>
+        `;
+        wrap.appendChild(row);
+      }
+    }
+
+$("r_date").addEventListener("change", () => {
       const info = getDayTypeFromDate($("r_date").value);
       $("r_dateLabel").value = info ? `${info.iso} (${info.dow} · ${info.label})` : "";
       syncDayTypePill();
@@ -1544,6 +1658,16 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
     ["r_name","r_phone","r_memo"].forEach(id => {
       $(id).addEventListener("input", updateReserveOutput);
     });
+    // ✅ 예약 강습: 시간/종목 변경 시 즉시 반영 (동적 생성 요소라 document에 위임)
+    document.addEventListener("change", (e) => {
+      if (
+        e.target.matches('input[name^="r_lesson_"][name$="_type"]') ||
+        (e.target.id && e.target.id.startsWith("r_lesson_") && e.target.id.endsWith("_time"))
+      ) {
+        updateReserveOutput();
+      }
+    });
+
 
     function enforceReserveRules() {
         const adult = readCount("r_adult");
@@ -1566,33 +1690,65 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
 
 
     function updateReserveOutput() {
-      enforceReserveRules();
+      const lines = [];
 
-      const name = $("r_name").value.trim();
-      const phone = $("r_phone").value.trim();
-      const dateInfo = getDayTypeFromDate($("r_date").value);
-      const time = $("r_timeUnknown").checked ? "미정" : ($("r_time").value || "미정");
-      const lift = document.querySelector('input[name="r_lift"]:checked')?.value || "none";
-      const liftLabel = (lift === "none") ? "없음" : (lift === "unknown") ? "미정" : `${lift}시간권`;
+      const name = (document.getElementById("r_name")?.value || "").trim() || "-";
+      const phone = (document.getElementById("r_phone")?.value || "").trim() || "-";
+
+      const date = document.getElementById("r_dateLabel")?.value || "-";
+      const visitTime = document.getElementById("r_timeUnknown")?.checked
+        ? "미정"
+        : (document.getElementById("r_time")?.value || "미정");
+
+      const lift = document.getElementById("r_liftLabel")?.value || "없음";
 
       const adult = readCount("r_adult");
       const child = readCount("r_child");
-      const liftPeople = adult + child;
-
       const rental = readCount("r_rental");
-      const total = Math.max(liftPeople, rental);
+      const total = adult + child;
 
-      const memo = $("r_memo").value.trim() || "-";
-      
-      const isChecked = (id) => !!document.getElementById(id)?.checked;
-      const lines = [];
-      lines.push("[예약정보]");
-      lines.push(`성함: ${name || "-"}`);
-      lines.push(`연락처: ${phone || "-"}`);
+      const memo = document.getElementById("r_memo")?.value || "-";
+
+      const lessonTeams = readCount("r_lessonTeam");
+
+      /* ===============================
+        제목 분기
+      =============================== */
+      if (lessonTeams > 0) {
+        lines.push("[강습 예약 안내]");
+      } else {
+        lines.push("[예약 안내]");
+      }
+
       lines.push("");
-      lines.push(`이용일: ${dateInfo ? `${dateInfo.iso} (${dateInfo.dow} · ${dateInfo.label})` : "-"}`);
-      lines.push(`방문시간: ${time}`);
-      lines.push(`리프트권: ${liftLabel}`);
+      lines.push(name);
+      lines.push(phone);
+      lines.push("");
+
+      /* ===============================
+        강습 정보 (있을 때만)
+      =============================== */
+      if (lessonTeams > 0) {
+        for (let i = 1; i <= lessonTeams; i++) {
+          const cnt = readCount(`r_lesson_${i}_cnt`);
+          const time = document.getElementById(`r_lesson_${i}_time`)?.value || "";
+          const type =
+            document.querySelector(`input[name="r_lesson_${i}_type"]:checked`)
+              ?.value === "board"
+              ? "보드"
+              : "스키";
+
+          lines.push(`${i}. 1:${cnt} ${time}${type}`);
+        }
+        lines.push("");
+      }
+
+      /* ===============================
+        예약 기본 정보
+      =============================== */
+      lines.push(`이용일: ${date}`);
+      lines.push(`방문시간: ${visitTime}`);
+      lines.push(`리프트권: ${lift}`);
       lines.push("");
       lines.push(`인원: 대인 ${adult} / 소인 ${child}`);
       lines.push(`렌탈 인원: ${rental}`);
@@ -1600,7 +1756,11 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
       lines.push("");
       lines.push(`메모: ${memo}`);
 
-      $("r_output").value = lines.join("\n");
+      document.getElementById("r_output").value = lines.join("\n");
+
+      const output = document.getElementById("r_output");
+      output.style.height = "auto";
+      output.style.height = output.scrollHeight + "px";
     }
 
     $("btnResetReserve").addEventListener("click", () => {
@@ -1613,7 +1773,16 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
 
       ["r_adult","r_child","r_rental"].forEach(id => setCount(id, 0));
       $("r_totalPeople").textContent = "0";
-      updateReserveOutput();
+      
+      // ✅ 강습 초기화
+      setCount("r_lessonTeam", 0);
+      const rWrap = document.getElementById("r_lessonTeamsWrap");
+      if (rWrap) rWrap.innerHTML = "";
+      const rn = document.getElementById("r_lesson_name"); if (rn) rn.value = "";
+      const rp = document.getElementById("r_lesson_phone"); if (rp) rp.value = "";
+      for (const k in reserveLessonState) delete reserveLessonState[k];
+
+updateReserveOutput();
       syncDayTypePill();
       toast("초기화 완료");
     });
