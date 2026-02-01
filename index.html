@@ -1459,6 +1459,7 @@ $("q_breakdown").textContent = lines.join("\n").trim();
             "q_lift4_adult","q_lift4_child",
             "q_lift6_adult","q_lift6_child"
         ].forEach(id => setCount(id, 0));
+        
 
         // 장비 / 의류 / 옵션
         [
@@ -1472,6 +1473,8 @@ $("q_breakdown").textContent = lines.join("\n").trim();
         // 팀별 상세 영역 비우기
         const wrap = $("lessonTeamsWrap");
         if (wrap) wrap.innerHTML = "";
+        if ($("q_lesson_name")) $("q_lesson_name").value = "";
+        if ($("q_lesson_phone")) $("q_lesson_phone").value = "";
 
         // lessonState 써서 팀 상태 저장하고 있다면 같이 초기화
         if (typeof lessonState !== "undefined") {
@@ -1480,8 +1483,6 @@ $("q_breakdown").textContent = lines.join("\n").trim();
 
 
         $("q_memo").value = "";
-        $("q_lesson_name")?.addEventListener("input", updateQuote);
-        $("q_lesson_phone")?.addEventListener("input", updateQuote);
       
         // 쿠폰 초기화
         couponApplied = false;
