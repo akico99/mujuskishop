@@ -372,18 +372,42 @@
         <h2>4) 강습</h2>
   
         <div class="step">
-          <div class="left">
+        <div class="left">
             <div class="name">강습 팀 수</div>
             <div class="hint">1팀 = 170,000원 (주중/주말 동일)</div>
-          </div>
-          <div class="ctrl">
+        </div>
+
+        <!-- 🔹 팀 수 +- 버튼을 위로 -->
+        <div class="ctrl">
             <button class="btn mini" data-step="q_lessonTeam" data-delta="-1">−</button>
             <div class="count" id="q_lessonTeam">0</div>
             <button class="btn mini" data-step="q_lessonTeam" data-delta="1">+</button>
-          </div>
-          <div id="lessonTeamsWrap" style="margin-top:10px;"></div>
-
         </div>
+        </div>
+
+        <!-- 🔹 팀 수 1 이상일 때만 보여줄 영역 -->
+        <div id="lessonLeaderWrap" style="display:none; margin-top:10px;">
+        <div class="card" style="padding:12px;">
+            <div class="row">
+            <div class="field" style="min-width:240px;">
+                <label>예약자명</label>
+                <textarea
+                id="q_lesson_name"
+                rows="1"
+                placeholder="예: 홍길동"></textarea>
+            </div>
+            <div class="field" style="min-width:240px;">
+                <label>연락처</label>
+                <textarea
+                id="q_lesson_phone"
+                rows="1"
+                placeholder="예: 010-0000-0000"></textarea>
+            </div>
+            </div>
+        </div>
+</div>
+
+<div id="lessonTeamsWrap" style="margin-top:10px;"></div>
 
         <div style="height:16px"></div>
         <h2>5) 메모</h2>
@@ -391,8 +415,24 @@
         <textarea id="q_memo" placeholder="예: 픽업 문의 / 사이즈 / 결제 방식 / 요청사항"></textarea>
         </div>
 
-        <h2>예약 링크</h2>
+        <h2>출력 옵션</h2>
 
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <input type="checkbox" id="opt_showQuoteHeader" checked />
+          견적 안내/총액 라인 출력
+        </label>
+
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <input type="checkbox" id="opt_showLessonInfo" />
+          강습 안내(SB아카데미/문의/시간표) 출력
+        </label>
+
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <input type="checkbox" id="opt_showLodgingCoupon" />
+          숙박 할인/쿠폰/제휴펜션 안내 출력
+        </label>
+
+        <!-- 기존 예약 링크 체크박스는 그대로 -->
         <label style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="q_showReserveLink" />
           견적에 예약 링크 포함
@@ -612,7 +652,7 @@
   <div class="toast" id="toast">복사 완료</div>
 
   <script>
-    // -------------------------
+// -------------------------
     // 가격표
     // -------------------------
     const PRICES = {
@@ -665,7 +705,10 @@
     // 유틸
     // -------------------------
     const $ = (id) => document.getElementById(id);
-    const fmt = (n) => "₩ " + Number(n || 0).toLocaleString("ko-KR");
+    
+// checkbox helper (GLOBAL)
+const isChecked = (id) => !!document.getElementById(id)?.checked;
+const fmt = (n) => "₩ " + Number(n || 0).toLocaleString("ko-KR");
     const toast = (msg="완료") => {
       const t = $("toast");
       t.textContent = msg;
@@ -716,65 +759,84 @@
       $(id).textContent = String(val);
     }
     const lessonState = {};
-    function renderLessonTeams() {
-        const wrap = document.getElementById("lessonTeamsWrap");
-        if (!wrap) return;
 
-        const teamCount = readCount("q_lessonTeam");
+/** 강습 팀 수가 1 이상일 때만 예약자명/연락처 입력란 노출 */
+function toggleLessonLeaderWrap() {
+  const leaderWrap = document.getElementById("lessonLeaderWrap");
+  if (!leaderWrap) return;
 
-        // ✅ 현재 DOM에 있는 값들 먼저 저장
-        for (let i = 1; i <= teamCount; i++) {
-            const cntEl = document.getElementById(`q_lesson_${i}_cnt`);
-            const timeEl = document.getElementById(`q_lesson_${i}_time`);
-            const typeEl = document.querySelector(`input[name="q_lesson_${i}_type"]:checked`);
-            if (cntEl) {
-            lessonState[i] = {
-                cnt: Number(cntEl.textContent || 1),
-                time: timeEl?.value || "오전",
-                type: typeEl?.value || "ski",
-            };
-            }
-        }
+  const teamCount = readCount("q_lessonTeam");
+  leaderWrap.style.display = teamCount > 0 ? "" : "none";
 
-        wrap.innerHTML = "";
+  // (선택) 팀 수 0이면 입력값 비우기
+  if (teamCount === 0) {
+    const n = document.getElementById("q_lesson_name");
+    const p = document.getElementById("q_lesson_phone");
+    if (n) n.value = "";
+    if (p) p.value = "";
+  }
+}
 
-        for (let i = 1; i <= teamCount; i++) {
-            const saved = lessonState[i] || { cnt: 1, time: "오전", type: "ski" };
+function renderLessonTeams() {
+  const wrap = document.getElementById("lessonTeamsWrap");
+  if (!wrap) return;
 
-            const row = document.createElement("div");
-            row.className = "step";
-            row.style.marginTop = "8px";
+  const teamCount = readCount("q_lessonTeam");
+  toggleLessonLeaderWrap();
 
-            row.innerHTML = `
-                <div class="left">
-                    <div class="name">강습 ${i}팀</div>
-                    <div class="hint">인원 / 시간 / 종목 선택</div>
-                </div>
+  // ✅ 현재 DOM에 있는 값들 먼저 저장 (팀 수 줄였다가 다시 늘려도 유지)
+  for (let i = 1; i <= 50; i++) {
+    const cntEl = document.getElementById(`q_lesson_${i}_cnt`);
+    if (!cntEl) break;
 
-                <div class="ctrl" style="flex-wrap:wrap; gap:8px;">
-                    인원
-                    <button class="btn mini" data-step="q_lesson_${i}_cnt" data-delta="-1">−</button>
-                    <div class="count" id="q_lesson_${i}_cnt">${saved.cnt}</div>
-                    <button class="btn mini" data-step="q_lesson_${i}_cnt" data-delta="1">+</button>
+    const timeEl = document.getElementById(`q_lesson_${i}_time`);
+    const typeEl = document.querySelector(`input[name="q_lesson_${i}_type"]:checked`);
+    lessonState[i] = {
+      cnt: Number(cntEl.textContent || 1),
+      time: timeEl?.value || "오전",
+      type: typeEl?.value || "ski",
+    };
+  }
 
-                    <select id="q_lesson_${i}_time" class="btn" style="padding:8px 10px;">
-                        <option value="오전" ${saved.time==="오전"?"selected":""}>오전(09:00)</option>
-                        <option value="오후" ${saved.time==="오후"?"selected":""}>오후(13:00)</option>
-                        <option value="야간" ${saved.time==="야간"?"selected":""}>야간(19:00)</option>
-                    </select>
+  wrap.innerHTML = "";
 
-                    <label style="display:flex; align-items:center; gap:6px; margin-left:6px;">
-                        <input type="radio" name="q_lesson_${i}_type" value="ski" ${saved.type==="ski"?"checked":""}> 스키
-                    </label>
-                    <label style="display:flex; align-items:center; gap:6px;">
-                        <input type="radio" name="q_lesson_${i}_type" value="board" ${saved.type==="board"?"checked":""}> 보드
-                    </label>
-                </div>
-            `;
+  for (let i = 1; i <= teamCount; i++) {
+    const saved = lessonState[i] || { cnt: 1, time: "오전", type: "ski" };
 
-            wrap.appendChild(row);
-        }
-    }
+    const row = document.createElement("div");
+    row.className = "step";
+    row.style.marginTop = "8px";
+
+    row.innerHTML = `
+      <div class="left">
+        <div class="name">강습 ${i}팀</div>
+        <div class="hint">인원 / 시간 / 종목 선택</div>
+      </div>
+
+      <div class="ctrl" style="flex-wrap:wrap; gap:8px;">
+        인원
+        <button class="btn mini" data-step="q_lesson_${i}_cnt" data-delta="-1">−</button>
+        <div class="count" id="q_lesson_${i}_cnt">${saved.cnt}</div>
+        <button class="btn mini" data-step="q_lesson_${i}_cnt" data-delta="1">+</button>
+
+        <select id="q_lesson_${i}_time" class="btn" style="padding:8px 10px;">
+          <option value="오전" ${saved.time==="오전"?"selected":""}>오전(09:00)</option>
+          <option value="오후" ${saved.time==="오후"?"selected":""}>오후(13:00)</option>
+          <option value="야간" ${saved.time==="야간"?"selected":""}>야간(19:00)</option>
+        </select>
+
+        <label style="display:flex; align-items:center; gap:6px; margin-left:6px;">
+          <input type="radio" name="q_lesson_${i}_type" value="ski" ${saved.type==="ski"?"checked":""}> 스키
+        </label>
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input type="radio" name="q_lesson_${i}_type" value="board" ${saved.type==="board"?"checked":""}> 보드
+        </label>
+      </div>
+    `;
+
+    wrap.appendChild(row);
+  }
+}
 
 
     document.addEventListener("change", (e) => {
@@ -862,7 +924,10 @@
         next = clamp(cur + delta, 1, max);
       }
       setCount(id, next);
-      if (id === "q_lessonTeam") renderLessonTeams();
+      if (id === "q_lessonTeam") {
+        renderLessonTeams();
+        toggleLessonLeaderWrap();   // ✅ 추가
+      }
 
 
       if (isQuote) {
@@ -1027,7 +1092,7 @@
             const typeKr = (type === "ski") ? "스키" : "보드";
 
             // ✅ 네가 원하는 출력: "1:N 오전스키"
-            teamLines.push(`· ${i}. 1:${cnt} ${time}${typeKr}`);
+            teamLines.push(`· 1:${cnt} ${time}${typeKr}`);
         }
 
         items.push({
@@ -1035,9 +1100,7 @@
             label: `강습 (${lessonTeams}팀)`,
             amount: lessonPrice,
             original: lessonPrice,
-            detail:
-            `- 170,000원 × ${lessonTeams}\n` +
-            teamLines.join("\n")
+            detail: teamLines.join("\n")
         });
     }
 
@@ -1167,117 +1230,179 @@
       }
 
       // breakdown text
-      if (t.items.length === 0) {
-        $("q_breakdown").textContent = "(선택된 항목이 없습니다)";
-      } else {
-        const lines = [];
-        const shop = document.querySelector('input[name="shop"]:checked')?.value || "choice";
-        const greeting = SHOP_GREETING[shop] || "";
+const lines = [];
+const greeting = SHOP_GREETING[shop] || "";
 
-        if (greeting) {
-        lines.push(greeting);
-        lines.push(""); // 한 줄 띄우기
-        }
-        // --- 기타사항(Q/A) 출력 (입력된 쌍만) ---
-        const faqPairs = [];
-        const faqN = Number(document.getElementById("q_faqCount")?.value || 0);
+if (greeting) {
+  lines.push(greeting);
+  lines.push("");
+}
 
-        for (let i = 1; i <= faqN; i++) {
-          const q = (document.getElementById(`q_faq_q_${i}`)?.value || "").trim();
-          const a = (document.getElementById(`q_faq_a_${i}`)?.value || "").trim();
-          if (q && a) faqPairs.push({ q, a });
-        }
+// Q&A (입력된 쌍만)
+const faqPairs = [];
+const faqN = Number(document.getElementById("q_faqCount")?.value || 0);
+for (let i = 1; i <= faqN; i++) {
+  const q = (document.getElementById(`q_faq_q_${i}`)?.value || "").trim();
+  const a = (document.getElementById(`q_faq_a_${i}`)?.value || "").trim();
+  if (q && a) faqPairs.push({ q, a });
+}
 
-        if (faqPairs.length > 0) {
-          lines.push("작성해주신 문의사항에 대해 먼저 안내드립니다.");
-          lines.push("");
-          lines.push("[Q  &  A]");
-          lines.push("");
-          for (const p of faqPairs) {
-            lines.push(`Q. ${p.q}`);
-            lines.push(`A. ${p.a}`);
-            lines.push("");
-          }
-        }
+if (faqPairs.length > 0) {
+  lines.push("작성해주신 문의사항에 대해 먼저 안내드립니다.");
+  lines.push("");
+  lines.push("[Q  &  A]");
+  lines.push("");
+  for (const p of faqPairs) {
+    lines.push(`Q. ${p.q}`);
+    lines.push(`A. ${p.a}`);
+    lines.push("");
+  }
+}
 
-        // --- 견적 전환 문구 ---
-        lines.push("요청해주신 견적은 다음과 같습니다.");
-        lines.push("");
-        lines.push("[견적 안내]");        
+// 견적 안내/총액 라인 출력 (체크박스 제어)
+const showQuoteHeader = isChecked("opt_showQuoteHeader");
 
-        
-        if (t.dateInfo) lines.push(`이용일: ${t.dateInfo.iso} (${t.dateInfo.dow} · ${t.dateInfo.label})`);
-        else lines.push(`이용일: 미선택(주중 기준 임시 계산)`);
-        // lines.push( `리프트 인원: ` + `3시간(대인 ${t.lift3Adult}, 소인 ${t.lift3Child}) / ` + `4시간(대인 ${t.lift4Adult}, 소인 ${t.lift4Child}) / ` + `6시간(대인 ${t.lift6Adult}, 소인 ${t.lift6Child})` );
-        // lines.push(`리프트권 인원: ${t.totalPeople}명`);
+if (showQuoteHeader) {
+  lines.push("요청해주신 견적은 다음과 같습니다.");
+  lines.push("");
+  lines.push("[견적 안내]");
+  if (t.dateInfo) lines.push(`이용일: ${t.dateInfo.iso} (${t.dateInfo.dow} · ${t.dateInfo.label})`);
+  else lines.push("이용일: 미선택(주중 기준 임시 계산)");
+  lines.push("");
+}
 
-        for (const it of t.items) {
-          if (couponApplied && it.original !== it.amount) {
-            lines.push(
-              `${it.label}: ${it.amount.toLocaleString()}원 (쿠폰 ${couponDiscountRate}% 적용)`
-            );
-            lines.push(
-              `- 원가 ${it.original.toLocaleString()}원`
-            );
-          } else {
-            lines.push(
-              `${it.label}: ${it.amount.toLocaleString()}원`
-            );
-          }
-        
-          if (it.detail) lines.push(it.detail);
-          lines.push("");
-        }
+// 선택 항목 출력 (0개여도 흐름 유지)
+if (t.items.length === 0) {
+} else {
+  for (const it of t.items) {
+    if (it.key === "lesson") {
+      const lessonName = (document.getElementById("q_lesson_name")?.value || "").trim();
+      const lessonPhone = (document.getElementById("q_lesson_phone")?.value || "").trim();
 
-        const memo = $("q_memo")?.value?.trim() || "";
+      lines.push(`${it.label}: ${it.amount.toLocaleString()}원`);
+      if (lessonName) lines.push(`- ${lessonName}`);
+      if (lessonPhone) lines.push(`- ${lessonPhone}`);
+      lines.push("");
+      if (it.detail) lines.push(it.detail);
+      lines.push("");
+      continue;
+    }
 
-        lines.push(`총 견적 금액: ${t.total.toLocaleString()}원`);
-        const showReserve = document.getElementById("q_showReserveLink")?.checked;
-        const shopVal = document.querySelector('input[name="shop"]:checked')?.value;
+    if (couponApplied && it.original !== it.amount) {
+      lines.push(`${it.label}: ${it.amount.toLocaleString()}원 (쿠폰 ${couponDiscountRate}% 적용)`);
+      lines.push(`- 원가 ${it.original.toLocaleString()}원`);
+    } else {
+      lines.push(`${it.label}: ${it.amount.toLocaleString()}원`);
+    }
 
-        const RESERVE_LINKS = {
-          choice: {
-            home: "http://www.kgrc.co.kr/bbs/write.php?bo_table=04_02",
-            naver: "https://booking.naver.com/booking/5/bizes/791512/items/4701786",
-          },
-          sky: {
-            home: "https://www.mujusky.co.kr/bbs/write.php?bo_table=06_05",
-            naver: "https://booking.naver.com/booking/5/bizes/272888/items/4165761?",
-          },
-          national: {
-            home: "http://okmuju.com/bbs/write.php?bo_table=08",
-            naver: "https://booking.naver.com/booking/5/bizes/305178/items/3643073?",
-          },
-        };
+    if (it.detail) lines.push(it.detail);
+    lines.push("");
+  }
+}
 
+// 총액 (체크박스 제어)
+if (showQuoteHeader) {
+  lines.push(`총 견적 금액: ${t.total.toLocaleString()}원`);
+}
 
-        if (showReserve && shopVal && RESERVE_LINKS[shopVal]) {
-          const links = RESERVE_LINKS[shopVal];
+// 강습&SB아카데미 안내 (선택항목 없어도 체크면 출력)
+if (isChecked("opt_showLessonInfo")) {
+  lines.push("----------------------------------------------");
+  lines.push("[강습 안내]");
+  lines.push("※스키&보드 강습(같은 종목으로만 강습가능)");
+  lines.push("당일강습은 불가하며, 꼭 예약후 강습 가능합니다.");
+  lines.push("강습 1팀(강사1명) 기준 주중/주말 170,000원입니다.");
+  lines.push("");
+  lines.push("강습시간(고정)");
+  lines.push("오전 09:00~12:00");
+  lines.push("오후 13:00~16:00");
+  lines.push("야간 18:30~21:30");
+  lines.push("");
+  lines.push("SB아카데미(강사 선택 가능)");
+  lines.push("사이트: https://sbski.co.kr/");
+  lines.push("유선문의: 010.3600.1196");
+}
 
-          lines.push("");
-          lines.push("----------------------------------------------");
-          lines.push("예약은 아래 링크에서 진행 부탁드립니다.");
-          lines.push("가계약금 5만원 결제 후,");
-          lines.push("잔액은 이용 당일 현장 결제입니다.");
-          lines.push("");
+// 숙박&쿠폰 안내 (선택항목 없어도 체크면 출력)
+if (isChecked("opt_showLodgingCoupon")) {
+  lines.push("----------------------------------------------");
+  lines.push("[숙박 할인/쿠폰 안내]");
+  lines.push("주중20%(일-금)")
+  lines.push("주말10%(토,공휴일)")
+  lines.push("렌탈샵 예약 시 할인 쿠폰을 보내드리며,");
+  lines.push("숙박예약시 업주에게 보여주시면");
+  lines.push("할인가 예약이 가능합니다");
+  lines.push("------------------------------");
+  lines.push("*예약진행방법*");
+  lines.push("- 렌탈샵 예약");
+  lines.push("- 숙박 할인 쿠폰 발송");
+  lines.push("- 펜션예약시 쿠폰 제시");
+  lines.push("- 할인가 예약 진행");
+  lines.push("------------------------------");
+  lines.push("1. 무곡펜션");
+  lines.push("https://www.mugok.co.kr/");
+  lines.push("(예약 010-9813-3421)");
+  lines.push("2. 스케치펜션");
+  lines.push("http://mujusketch.com/");
+  lines.push("(예약 010-4747-6747)");
+  lines.push("3. 로베펜션");
+  lines.push("http://mujulaube.com/");
+  lines.push("(예약 010-4656-1048)");
+  lines.push("4. 루마인펜션");
+  lines.push("http://rumine.kr/contents/main.html");
+  lines.push("(예약 010-9000-9396)");
+  lines.push("5. 빌라드무주");
+  lines.push("http://villademuju.com/");
+  lines.push("(예약 010-8890-6390)");
+  lines.push("6.모모펜션 ");
+  lines.push("http://www.guesthousemomo.com/");
+  lines.push("(예약 010-5401-2408)");
+  lines.push("7. 라비앙로즈");
+  lines.push("http://lavieenrosemuju.com/");
+  lines.push("(예약 010-3729-6748)");
+}
 
-          lines.push("※ 예약하기");
-          lines.push(links.home);
-          lines.push("");
+// 예약 링크 (선택항목 0개여도 체크면 출력)
+const showReserve = isChecked("q_showReserveLink");
+const shopVal = document.querySelector('input[name="shop"]:checked')?.value;
 
-          lines.push("*N페이 예약하기*");
-          lines.push(links.naver);
-        }
-        lines.push("");
+const RESERVE_LINKS = {
+  choice: {
+    home: "http://www.kgrc.co.kr/bbs/write.php?bo_table=04_02",
+    naver: "https://booking.naver.com/booking/5/bizes/791512/items/4701786",
+  },
+  sky: {
+    home: "https://www.mujusky.co.kr/bbs/write.php?bo_table=06_05",
+    naver: "https://booking.naver.com/booking/5/bizes/272888/items/4165761?",
+  },
+  national: {
+    home: "http://okmuju.com/bbs/write.php?bo_table=08",
+    naver: "https://booking.naver.com/booking/5/bizes/305178/items/3643073?",
+  },
+};
 
-        if (memo) {
-        lines.push(memo);
-        } else {
-        lines.push("");
-        }
+if (showReserve && shopVal && RESERVE_LINKS[shopVal]) {
+  const links = RESERVE_LINKS[shopVal];
+  lines.push("----------------------------------------------");
+  lines.push("예약은 아래 링크에서 진행 부탁드립니다.");
+  lines.push("가계약금 5만원 결제 후,");
+  lines.push("잔액은 이용 당일 현장 결제입니다.");
+  lines.push("");
+  lines.push("※ 예약하기");
+  lines.push(links.home);
+  lines.push("");
+  lines.push("*N페이 예약하기*");
+  lines.push(links.naver);
+  lines.push("----------------------------------------------");
+  lines.push("");
+}
 
-        $("q_breakdown").textContent = lines.join("\n").trim();
-      }
+const memo = $("q_memo")?.value?.trim() || "";
+if (memo) {
+  lines.push(memo);
+}
+
+$("q_breakdown").textContent = lines.join("\n").trim();
 
       // 가격표 요약
       const S = PRICES.shops[shop];
@@ -1314,6 +1439,20 @@
         $("q_date").value = "";
         $("q_dateLabel").value = "";
 
+        // ✅ 체크박스 기본값으로 되돌리기 (여기에!)
+        const defaults = {
+          opt_showQuoteHeader: true,   // 기본 ON
+          opt_showLessonInfo: false,
+          opt_showLodgingCoupon: false,
+          q_showReserveLink: false,
+          r_timeUnknown: false,
+        };
+
+        Object.entries(defaults).forEach(([id, val]) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = val;
+        });
+
         // ✅ 리프트권 인원 초기화 (가장 중요)
         [
             "q_lift3_adult","q_lift3_child",
@@ -1341,6 +1480,8 @@
 
 
         $("q_memo").value = "";
+        $("q_lesson_name")?.addEventListener("input", updateQuote);
+        $("q_lesson_phone")?.addEventListener("input", updateQuote);
       
         // 쿠폰 초기화
         couponApplied = false;
@@ -1354,6 +1495,7 @@
         $("q_warn").textContent = "";
         syncDayTypePill();
         updateQuote();
+        
         toast("초기화 완료");
     });
 
@@ -1383,9 +1525,18 @@
 
     $("q_memo").addEventListener("input", updateQuote);
     $("q_showReserveLink")?.addEventListener("change", updateQuote);
+    document.getElementById("q_lesson_name")?.addEventListener("input", updateQuote);
+    document.getElementById("q_lesson_phone")?.addEventListener("input", updateQuote);
     document.getElementById("q_showReserveLink")?.addEventListener("change", updateQuote);
-
-    document.querySelectorAll('input[name="r_lift"]').forEach(r => {
+    [
+  "opt_showLessonInfo",
+  "opt_showLodgingCoupon",
+  "q_showReserveLink",
+  "opt_showQuoteHeader"
+].forEach(id => {
+  document.getElementById(id)?.addEventListener("change", updateQuote);
+});
+document.querySelectorAll('input[name="r_lift"]').forEach(r => {
       r.addEventListener("change", updateReserveOutput);
     });
 
@@ -1431,7 +1582,8 @@
       const total = Math.max(liftPeople, rental);
 
       const memo = $("r_memo").value.trim() || "-";
-
+      
+      const isChecked = (id) => !!document.getElementById(id)?.checked;
       const lines = [];
       lines.push("[예약정보]");
       lines.push(`성함: ${name || "-"}`);
@@ -1590,6 +1742,8 @@
       }
       renderFaqFields(); // 최초 1회 렌더 (0개면 아무것도 안 보임)
     });
-  </script>
+    toggleLessonLeaderWrap();
+    renderLessonTeams();
+</script>
 </body>
 </html>
