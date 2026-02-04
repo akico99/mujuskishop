@@ -1513,7 +1513,11 @@ $("q_breakdown").textContent = lines.join("\n").trim();
         // lessonState 써서 팀 상태 저장하고 있다면 같이 초기화
         if (typeof lessonState !== "undefined") {
             for (const k in lessonState) delete lessonState[k];
-        }    
+        }  
+
+        // 0) 기타사항(Q&A) 초기화
+        $("q_faqCount").value = "0";
+        $("faqWrap").innerHTML = "";
 
 
         $("q_memo").value = "";
