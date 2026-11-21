@@ -748,7 +748,13 @@ const fmt = (n) => "₩ " + Number(n || 0).toLocaleString("ko-KR");
     "2026-01-01", // 신정 예시
     "2026-02-16",
     "2026-02-17",
-    "2026-02-18"
+    "2026-02-18",
+    // 2026-27 시즌 평일 공휴일·대체공휴일
+    "2026-12-25", // 성탄절
+    "2027-01-01", // 신정
+    "2027-02-08", // 설 연휴
+    "2027-02-09", // 설 대체공휴일
+    "2027-03-01"  // 삼일절
     // 원하는 날짜 계속 추가
     ]);
 
@@ -1918,6 +1924,40 @@ updateReserveOutput();
     });
     toggleLessonLeaderWrap();
     renderLessonTeams();
+
+    // -------------------------
+    // 주소(URL)로 견적 자동 채우기
+    // 예) ?shop=choice&date=2026-12-25&l6a=2&eq=2&ch=2&hm=2&lesson=1
+    // 게시판 알림의 "계산기로 열기" 버튼에서 사용합니다.
+    // -------------------------
+    (function prefillFromUrl() {
+      const p = new URLSearchParams(location.search);
+      if (![...p.keys()].length) return;
+      const shop = p.get("shop");
+      if (shop) {
+        const r = document.querySelector('input[name="shop"][value="' + shop + '"]');
+        if (r) { r.checked = true; syncClothLabel(); syncGlovesUI(); }
+      }
+      const map = {
+        l3a: "q_lift3_adult", l3c: "q_lift3_child",
+        l4a: "q_lift4_adult", l4c: "q_lift4_child",
+        l6a: "q_lift6_adult", l6c: "q_lift6_child",
+        eq: "q_equipment", sk: "q_skiate",
+        ch: "q_clothHigh", cp: "q_clothPremium",
+        pad: "q_pad", hm: "q_helmet", hs: "q_helmetSet", gl: "q_gloves",
+        lesson: "q_lessonTeam"
+      };
+      for (const [k, id] of Object.entries(map)) {
+        if (p.has(k) && $(id)) setCount(id, clamp(Number(p.get(k)) || 0, 0, 99));
+      }
+      const date = p.get("date");
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) $("q_date").value = date;
+      if (p.get("memo")) $("q_memo").value = p.get("memo");
+      toggleLessonLeaderWrap();
+      renderLessonTeams();
+      syncDayTypePill();
+      updateQuote();
+    })();
 </script>
 </body>
 </html>
