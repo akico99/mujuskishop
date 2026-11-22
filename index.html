@@ -556,14 +556,56 @@
         <div style="height:10px"></div>
 
         <div class="field">
-          <label>리프트권 시간</label>
-          <div class="seg" id="r_liftSeg">
-            <label><input type="radio" name="r_lift" value="none" checked> 없음</label>
-            <label><input type="radio" name="r_lift" value="3"> 3시간권</label>
-            <label><input type="radio" name="r_lift" value="4"> 4시간권</label>
-            <label><input type="radio" name="r_lift" value="6"> 6시간권</label>
-            <label><input type="radio" name="r_lift" value="unknown"> 미정</label>
+          <label>리프트권 (시간권별 인원, 여러 개 선택 가능)</label>
+          <div class="step">
+            <div class="left">
+              <div class="name">3시간권</div>
+            </div>
+            <div class="ctrl">
+              대인
+              <button class="btn mini" data-step="r_lift3_adult" data-delta="-1">−</button>
+              <div class="count" id="r_lift3_adult">0</div>
+              <button class="btn mini" data-step="r_lift3_adult" data-delta="1">+</button>
+
+              소인
+              <button class="btn mini" data-step="r_lift3_child" data-delta="-1">−</button>
+              <div class="count" id="r_lift3_child">0</div>
+              <button class="btn mini" data-step="r_lift3_child" data-delta="1">+</button>
+            </div>
           </div>
+          <div class="step">
+            <div class="left">
+              <div class="name">4시간권</div>
+            </div>
+            <div class="ctrl">
+              대인
+              <button class="btn mini" data-step="r_lift4_adult" data-delta="-1">−</button>
+              <div class="count" id="r_lift4_adult">0</div>
+              <button class="btn mini" data-step="r_lift4_adult" data-delta="1">+</button>
+
+              소인
+              <button class="btn mini" data-step="r_lift4_child" data-delta="-1">−</button>
+              <div class="count" id="r_lift4_child">0</div>
+              <button class="btn mini" data-step="r_lift4_child" data-delta="1">+</button>
+            </div>
+          </div>
+          <div class="step">
+            <div class="left">
+              <div class="name">6시간권</div>
+            </div>
+            <div class="ctrl">
+              대인
+              <button class="btn mini" data-step="r_lift6_adult" data-delta="-1">−</button>
+              <div class="count" id="r_lift6_adult">0</div>
+              <button class="btn mini" data-step="r_lift6_adult" data-delta="1">+</button>
+
+              소인
+              <button class="btn mini" data-step="r_lift6_child" data-delta="-1">−</button>
+              <div class="count" id="r_lift6_child">0</div>
+              <button class="btn mini" data-step="r_lift6_child" data-delta="1">+</button>
+            </div>
+          </div>
+          <label style="display:block;margin-top:8px;"><input type="checkbox" id="r_liftUnknown"> 리프트권 미정</label>
         </div>
 
         <div style="height:14px"></div>
@@ -1663,9 +1705,7 @@ $("r_date").addEventListener("change", () => {
 ].forEach(id => {
   document.getElementById(id)?.addEventListener("change", updateQuote);
 });
-document.querySelectorAll('input[name="r_lift"]').forEach(r => {
-      r.addEventListener("change", updateReserveOutput);
-    });
+$("r_liftUnknown").addEventListener("change", updateReserveOutput);
 
     ["r_name","r_phone","r_memo"].forEach(id => {
       $(id).addEventListener("input", updateReserveOutput);
@@ -1712,8 +1752,18 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
         ? "미정"
         : (document.getElementById("r_time")?.value || "미정");
 
-      const liftVal = document.querySelector('input[name="r_lift"]:checked')?.value || "none";
-      const lift = { none: "없음", "3": "3시간권", "4": "4시간권", "6": "6시간권", unknown: "미정" }[liftVal] || "없음";
+      // 리프트권: 시간권별 대인/소인 (여러 개 가능)
+      const liftParts = [];
+      for (const h of ["3", "4", "6"]) {
+        const a = readCount("r_lift" + h + "_adult");
+        const c = readCount("r_lift" + h + "_child");
+        if (a + c === 0) continue;
+        const who = [a ? "대인 " + a : "", c ? "소인 " + c : ""].filter(Boolean).join(" · ");
+        liftParts.push(h + "시간권 " + who);
+      }
+      const lift = liftParts.length
+        ? liftParts.join(", ") + (document.getElementById("r_liftUnknown")?.checked ? " (+ 미정 있음)" : "")
+        : (document.getElementById("r_liftUnknown")?.checked ? "미정" : "없음");
 
       const adult = readCount("r_adult");
       const child = readCount("r_child");
@@ -1784,7 +1834,8 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
       $("r_timeUnknown").checked = false;
       $("r_time").disabled = false;
 
-      ["r_adult","r_child","r_rental"].forEach(id => setCount(id, 0));
+      ["r_adult","r_child","r_rental","r_lift3_adult","r_lift3_child","r_lift4_adult","r_lift4_child","r_lift6_adult","r_lift6_child"].forEach(id => setCount(id, 0));
+      $("r_liftUnknown").checked = false;
       $("r_totalPeople").textContent = "0";
       
       // ✅ 강습 초기화
