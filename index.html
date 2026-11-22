@@ -1712,7 +1712,8 @@ document.querySelectorAll('input[name="r_lift"]').forEach(r => {
         ? "미정"
         : (document.getElementById("r_time")?.value || "미정");
 
-      const lift = document.getElementById("r_liftLabel")?.value || "없음";
+      const liftVal = document.querySelector('input[name="r_lift"]:checked')?.value || "none";
+      const lift = { none: "없음", "3": "3시간권", "4": "4시간권", "6": "6시간권", unknown: "미정" }[liftVal] || "없음";
 
       const adult = readCount("r_adult");
       const child = readCount("r_child");
