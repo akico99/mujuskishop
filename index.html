@@ -1111,6 +1111,7 @@ if (isQuote) {
     // 견적 화면 로직
     // -------------------------
     $("q_date").addEventListener("change", () => {
+      $("q_room_date").value = $("q_date").value;
       const info = getDayTypeFromDate($("q_date").value);
       $("q_dateLabel").value = info ? `${info.iso} (${info.dow} · ${info.label})` : "";
       syncDayTypePill();
@@ -2152,7 +2153,10 @@ updateReserveOutput();
         if (p.has(k) && $(id)) setCount(id, clamp(Number(p.get(k)) || 0, 0, 99));
       }
       const date = p.get("date");
-      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) $("q_date").value = date;
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        $("q_date").value = date;
+        $("q_date").dispatchEvent(new Event("change"));
+      }
       if (p.get("memo")) $("q_memo").value = p.get("memo");
       syncClothLabel();
       syncGlovesUI();
