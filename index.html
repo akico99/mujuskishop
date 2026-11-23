@@ -702,13 +702,27 @@
           <div class="field">
             <div class="step">
               <div class="left">
-                <div class="name">렌탈 인원</div>
-                <div class="hint">장비/의류 합산(원하면)</div>
+                <div class="name">장비</div>
+                <div class="hint">렌탈 인원</div>
               </div>
               <div class="ctrl">
-                <button class="btn mini" data-step="r_rental" data-delta="-1">−</button>
-                <div class="count" id="r_rental">0</div>
-                <button class="btn mini" data-step="r_rental" data-delta="1">+</button>
+                <button class="btn mini" data-step="r_equipment" data-delta="-1">−</button>
+                <div class="count" id="r_equipment">0</div>
+                <button class="btn mini" data-step="r_equipment" data-delta="1">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="step">
+              <div class="left">
+                <div class="name">의류</div>
+                <div class="hint">렌탈 인원</div>
+              </div>
+              <div class="ctrl">
+                <button class="btn mini" data-step="r_cloth" data-delta="-1">−</button>
+                <div class="count" id="r_cloth">0</div>
+                <button class="btn mini" data-step="r_cloth" data-delta="1">+</button>
               </div>
             </div>
           </div>
@@ -1860,10 +1874,11 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
         const child = readCount("r_child");
         const liftPeople = adult + child;
 
-        const rental = readCount("r_rental");
+        const equipment = readCount("r_equipment");
+        const cloth = readCount("r_cloth");
 
-        // ✅ 총 인원 = 리프트권 인원 vs 렌탈 인원 중 큰 값
-        const total = Math.max(liftPeople, rental);
+        // 총 인원 = 리프트권 인원 / 장비 / 의류 중 큰 값
+        const total = Math.max(liftPeople, equipment, cloth);
 
         // 기존 UI가 r_totalPeople을 "리프트권 인원"이라고 쓰고 있지만,
         // 네 요구대로라면 여기엔 "총 인원" 개념이 들어가는 게 맞음
@@ -1871,7 +1886,8 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
 
         // ✅ 이제 렌탈 인원은 리프트 인원과 무관하게 조절 가능
         // (원하면 상한만 99로 제한)
-        setCount("r_rental", clamp(rental, 0, 99));
+        setCount("r_equipment", clamp(equipment, 0, 99));
+        setCount("r_cloth", clamp(cloth, 0, 99));
     }
 
 
@@ -1901,7 +1917,8 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
 
       const adult = readCount("r_adult");
       const child = readCount("r_child");
-      const rental = readCount("r_rental");
+      const equipment = readCount("r_equipment");
+      const cloth = readCount("r_cloth");
       const total = adult + child;
 
       const memo = document.getElementById("r_memo")?.value || "-";
@@ -1953,7 +1970,7 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
       if (roomParts.length) lines.push("리조트 객실: " + roomParts.join(" · "));
       lines.push("");
       lines.push(`인원: 대인 ${adult} / 소인 ${child}`);
-      lines.push(`렌탈 인원: ${rental}`);
+      lines.push(`장비: ${equipment}명 / 의류: ${cloth}명`);
       lines.push(`총 인원: ${total}명`);
       lines.push("");
       lines.push(`메모: ${memo}`);
@@ -1973,7 +1990,7 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
       $("r_timeUnknown").checked = false;
       $("r_time").disabled = false;
 
-      ["r_adult","r_child","r_rental","r_lift3_adult","r_lift3_child","r_lift4_adult","r_lift4_child","r_lift6_adult","r_lift6_child","r_room_silver","r_room_gold","r_room_royal"].forEach(id => setCount(id, 0));
+      ["r_adult","r_child","r_equipment","r_cloth","r_lift3_adult","r_lift3_child","r_lift4_adult","r_lift4_child","r_lift6_adult","r_lift6_child","r_room_silver","r_room_gold","r_room_royal"].forEach(id => setCount(id, 0));
       $("r_liftUnknown").checked = false;
       $("r_totalPeople").textContent = "0";
       
