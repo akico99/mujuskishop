@@ -96,6 +96,11 @@
     .dateWrap input[type="date"]::-webkit-inner-spin-button{
     display:none;
     }
+    /* iOS 날짜칸 넘침 방지 */
+    .dateWrap{ width:100%; min-width:0; }
+    input[type="date"]{ -webkit-appearance:none; appearance:none; display:block; width:100%; min-width:0; max-width:100%; min-height:42px; text-align:left; }
+    input[type="date"]::-webkit-date-and-time-value{ text-align:left; }
+    #q_room_nights{ width:100%; min-width:0; min-height:42px; }
   </style>
 </head>
 
@@ -413,7 +418,7 @@
         <h2>5) 리조트 객실</h2>
         <div class="row">
           <div class="field">
-            <label for="q_room_date">숙박 시작일 (비워두면 이용일 적용)</label>
+            <label for="q_room_date">숙박 시작일</label>
             <input type="date" id="q_room_date" />
           </div>
           <div class="field">
@@ -421,8 +426,7 @@
             <input type="number" id="q_room_nights" min="1" max="90" step="1" value="1" />
           </div>
         </div>
-        <div id="q_room_stayHint" class="hint" aria-live="polite"></div>
-        <div class="hint" style="margin-bottom:6px;">2026/27 시즌 · 숙박일별 1실·1박 요금으로 자동 계산됩니다.</div>
+        <div style="height:8px"></div>
         <div class="step">
           <div class="left">
             <div class="name">실버</div>
@@ -1129,9 +1133,6 @@ if (isQuote) {
     function syncRoomRates() {
       const stay = getRoomStay();
       const preview = ResortRooms.quote(stay.date, stay.nights, {silver:1, gold:1, royal:1});
-      $("q_room_stayHint").textContent = stay.date
-        ? `숙박 시작일: ${stay.date} · ${stay.nights}박 · 요금표 적용 기간: 2026-12-05~2027-02-28`
-        : "숙박 시작일 또는 이용일을 선택해 주세요. (요금표: 2026-12-05~2027-02-28)";
       for (const [key] of ROOM_TYPES) {
         $("q_room_" + key + "_rate").textContent = preview.total === null
           ? "요금 미정(숙박일·박수 확인 필요)"
