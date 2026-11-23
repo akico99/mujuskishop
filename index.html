@@ -662,39 +662,8 @@
 
         <div style="height:14px"></div>
 
-        <h2>2) 인원 / 렌탈</h2>
-        <div class="row">
-          <div class="field">
-            <div class="step">
-              <div class="left">
-                <div class="name">대인</div>
-                <div class="hint">예약 인원</div>
-              </div>
-              <div class="ctrl">
-                <button class="btn mini" data-step="r_adult" data-delta="-1">−</button>
-                <div class="count" id="r_adult">0</div>
-                <button class="btn mini" data-step="r_adult" data-delta="1">+</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="step">
-              <div class="left">
-                <div class="name">소인</div>
-                <div class="hint">예약 인원</div>
-              </div>
-              <div class="ctrl">
-                <button class="btn mini" data-step="r_child" data-delta="-1">−</button>
-                <div class="count" id="r_child">0</div>
-                <button class="btn mini" data-step="r_child" data-delta="1">+</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style="height:12px"></div>
-        <div class="pill">리프트권 인원: <b id="r_totalPeople">0</b>명</div>
+        <h2>2) 렌탈</h2>
+        <div class="pill">총 인원: <b id="r_totalPeople">0</b>명</div>
 
         <div style="height:12px"></div>
 
@@ -1869,10 +1838,13 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
     });
 
 
+    function reserveLiftPeople() {
+      return ["3", "4", "6"].reduce((sum, h) =>
+        sum + readCount("r_lift" + h + "_adult") + readCount("r_lift" + h + "_child"), 0);
+    }
+
     function enforceReserveRules() {
-        const adult = readCount("r_adult");
-        const child = readCount("r_child");
-        const liftPeople = adult + child;
+        const liftPeople = reserveLiftPeople();
 
         const equipment = readCount("r_equipment");
         const cloth = readCount("r_cloth");
@@ -1915,11 +1887,9 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
         ? liftParts.join(", ") + (document.getElementById("r_liftUnknown")?.checked ? " (+ 미정 있음)" : "")
         : (document.getElementById("r_liftUnknown")?.checked ? "미정" : "없음");
 
-      const adult = readCount("r_adult");
-      const child = readCount("r_child");
       const equipment = readCount("r_equipment");
       const cloth = readCount("r_cloth");
-      const total = adult + child;
+      const total = Math.max(reserveLiftPeople(), equipment, cloth);
 
       const memo = document.getElementById("r_memo")?.value || "-";
 
@@ -1969,7 +1939,6 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
         .map(([rn, n]) => rn + " " + n + "실");
       if (roomParts.length) lines.push("리조트 객실: " + roomParts.join(" · "));
       lines.push("");
-      lines.push(`인원: 대인 ${adult} / 소인 ${child}`);
       lines.push(`장비: ${equipment}명 / 의류: ${cloth}명`);
       lines.push(`총 인원: ${total}명`);
       lines.push("");
@@ -1990,7 +1959,7 @@ $("r_liftUnknown").addEventListener("change", updateReserveOutput);
       $("r_timeUnknown").checked = false;
       $("r_time").disabled = false;
 
-      ["r_adult","r_child","r_equipment","r_cloth","r_lift3_adult","r_lift3_child","r_lift4_adult","r_lift4_child","r_lift6_adult","r_lift6_child","r_room_silver","r_room_gold","r_room_royal"].forEach(id => setCount(id, 0));
+      ["r_equipment","r_cloth","r_lift3_adult","r_lift3_child","r_lift4_adult","r_lift4_child","r_lift6_adult","r_lift6_child","r_room_silver","r_room_gold","r_room_royal"].forEach(id => setCount(id, 0));
       $("r_liftUnknown").checked = false;
       $("r_totalPeople").textContent = "0";
       
