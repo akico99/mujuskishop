@@ -31,7 +31,7 @@
     .row { display:flex; gap:10px; flex-wrap:wrap; }
     .field { display:flex; flex-direction:column; gap:6px; flex:1; min-width: 160px; }
     label { font-size: 12px; color: var(--muted); }
-    input[type="text"], input[type="tel"], input[type="time"], input[type="date"], textarea, select {
+    input[type="text"], input[type="tel"], input[type="time"], input[type="date"], #q_room_nights, textarea, select {
       background: rgba(255,255,255,0.03); border:1px solid var(--line); color:var(--text);
       padding: 10px 10px; border-radius: 12px; outline:none;
     }
@@ -411,14 +411,24 @@
 
         <div style="height:16px"></div>
         <h2>5) 리조트 객실</h2>
-        <div class="hint" style="margin-bottom:6px;">방 가격은 매번 달라지니 1실 금액을 직접 입력하고 개수를 고르세요.</div>
+        <div class="row">
+          <div class="field">
+            <label for="q_room_date">숙박 시작일 (비워두면 이용일 적용)</label>
+            <input type="date" id="q_room_date" />
+          </div>
+          <div class="field">
+            <label for="q_room_nights">숙박 박수</label>
+            <input type="number" id="q_room_nights" min="1" max="90" step="1" value="1" />
+          </div>
+        </div>
+        <div id="q_room_stayHint" class="hint" aria-live="polite"></div>
+        <div class="hint" style="margin-bottom:6px;">2026/27 시즌 · 숙박일별 1실·1박 요금으로 자동 계산됩니다.</div>
         <div class="step">
           <div class="left">
             <div class="name">실버</div>
-            <div class="hint">1실 금액 직접 입력</div>
+            <div class="hint" id="q_room_silver_rate">숙박일 선택 시 요금 표시</div>
           </div>
           <div class="ctrl">
-            <input type="number" id="q_room_silver_price" class="roomPrice" min="0" step="1000" placeholder="1실 금액" style="width:120px;" /> 원
             <button class="btn mini" data-step="q_room_silver" data-delta="-1">−</button>
             <div class="count" id="q_room_silver">0</div>
             <button class="btn mini" data-step="q_room_silver" data-delta="1">+</button>
@@ -427,10 +437,9 @@
         <div class="step">
           <div class="left">
             <div class="name">골드</div>
-            <div class="hint">1실 금액 직접 입력</div>
+            <div class="hint" id="q_room_gold_rate">숙박일 선택 시 요금 표시</div>
           </div>
           <div class="ctrl">
-            <input type="number" id="q_room_gold_price" class="roomPrice" min="0" step="1000" placeholder="1실 금액" style="width:120px;" /> 원
             <button class="btn mini" data-step="q_room_gold" data-delta="-1">−</button>
             <div class="count" id="q_room_gold">0</div>
             <button class="btn mini" data-step="q_room_gold" data-delta="1">+</button>
@@ -439,10 +448,9 @@
         <div class="step">
           <div class="left">
             <div class="name">로얄</div>
-            <div class="hint">1실 금액 직접 입력</div>
+            <div class="hint" id="q_room_royal_rate">숙박일 선택 시 요금 표시</div>
           </div>
           <div class="ctrl">
-            <input type="number" id="q_room_royal_price" class="roomPrice" min="0" step="1000" placeholder="1실 금액" style="width:120px;" /> 원
             <button class="btn mini" data-step="q_room_royal" data-delta="-1">−</button>
             <div class="count" id="q_room_royal">0</div>
             <button class="btn mini" data-step="q_room_royal" data-delta="1">+</button>
@@ -786,6 +794,7 @@
 
   <div class="toast" id="toast">복사 완료</div>
 
+  <script src="room-prices.js"></script>
   <script>
 
 // 금액 포맷 (원)
@@ -1109,6 +1118,26 @@ if (isQuote) {
       r.addEventListener("change", updateQuote);
     });
 
+    const ROOM_TYPES = [["silver", "실버"], ["gold", "골드"], ["royal", "로얄"]];
+    function getRoomStay() {
+      return {
+        date: $("q_room_date").value || $("q_date").value,
+        nights: Number($("q_room_nights").value),
+        counts: Object.fromEntries(ROOM_TYPES.map(([key]) => [key, readCount("q_room_" + key)]))
+      };
+    }
+    function syncRoomRates() {
+      const stay = getRoomStay();
+      const preview = ResortRooms.quote(stay.date, stay.nights, {silver:1, gold:1, royal:1});
+      $("q_room_stayHint").textContent = stay.date
+        ? `숙박 시작일: ${stay.date} · ${stay.nights}박 · 요금표 적용 기간: 2026-12-05~2027-02-28`
+        : "숙박 시작일 또는 이용일을 선택해 주세요. (요금표: 2026-12-05~2027-02-28)";
+      for (const [key] of ROOM_TYPES) {
+        $("q_room_" + key + "_rate").textContent = preview.total === null
+          ? "요금 미정(숙박일·박수 확인 필요)"
+          : `1실 ${stay.nights}박 합계 ${formatWon(preview.nights.reduce((sum, n) => sum + n.rates[key], 0))}`;
+      }
+    }
     function quoteTotals() {
       const lift3Adult = readCount("q_lift3_adult");
       const lift3Child = readCount("q_lift3_child");
@@ -1256,20 +1285,21 @@ if (isQuote) {
         });
     }
 
-    // 리조트 객실 (1실 금액 직접 입력 × 개수)
-    for (const [rk, rn] of [["silver", "실버"], ["gold", "골드"], ["royal", "로얄"]]) {
-        const cnt = readCount("q_room_" + rk);
-        if (cnt <= 0) continue;
-        const price = Number(document.getElementById("q_room_" + rk + "_price")?.value || 0);
-        items.push({
-            key: "room",
-            label: "리조트 객실(" + rn + ")",
-            amount: price * cnt,
-            original: price * cnt,
-            detail: price > 0
-              ? "- 1실 " + price.toLocaleString() + "원 × " + cnt + "실"
-              : "- 1실 금액 미입력 × " + cnt + "실 (금액 확인 필요)"
-        });
+    // 객실은 숙박일마다 저장된 1실·1박 요금 적용 (렌탈 쿠폰 제외)
+    const roomStay = getRoomStay();
+    const roomQuote = ResortRooms.quote(roomStay.date, roomStay.nights, roomStay.counts);
+    for (const [rk, rn] of ROOM_TYPES) {
+      const cnt = roomStay.counts[rk];
+      if (cnt <= 0) continue;
+      const pending = roomQuote.total === null;
+      const amount = pending ? 0 : roomQuote.nights.reduce((sum, night) => sum + night.rates[rk] * cnt, 0);
+      const detail = roomQuote.nights.length
+        ? roomQuote.nights.map(night => night.rates
+          ? `- ${night.date} (${night.rates.label}) 1실 ${formatWon(night.rates[rk])} × ${cnt}실 = ${formatWon(night.rates[rk] * cnt)}`
+          : `- ${night.date}: 요금 미정(확인 필요) × ${cnt}실`).join("\n")
+        : "- 숙박 시작일과 박수를 확인해 주세요.";
+      items.push({ key: "room", label: `리조트 객실(${rn} ${cnt}실 · ${roomStay.nights}박)`,
+        amount, original: amount, pending, detail });
     }
 
     // ✅ total은 items 다 넣고 난 뒤에 계산해야 함
@@ -1280,7 +1310,7 @@ if (isQuote) {
         dayType, dateInfo,
         lift3Adult, lift3Child, lift4Adult, lift4Child, lift6Adult, lift6Child,
         equipment, skiate, clothHigh, clothPremium, pad, helmet, helmetSet,
-        items, total
+        items, total, roomPending: roomQuote.total === null
       };
     }
 
@@ -1384,10 +1414,11 @@ if (isQuote) {
 
     function updateQuote() {
       enforceQuoteRules();
+      syncRoomRates();
       const t = quoteTotals();
       const shop = document.querySelector('input[name="shop"]:checked')?.value || "choice";
 
-      $("q_totalPrice").textContent = fmt(t.total);
+      $("q_totalPrice").textContent = t.roomPending ? "요금 확인 필요" : fmt(t.total);
       $("q_totalPeople").textContent = String(t.totalPeople);
 
       // note
@@ -1456,6 +1487,12 @@ if (t.items.length === 0) {
       continue;
     }
 
+    if (it.pending) {
+      lines.push(`${it.label}: 요금 미정(확인 필요)`);
+      if (it.detail) lines.push(it.detail);
+      lines.push("");
+      continue;
+    }
     if (couponApplied && it.original !== it.amount) {
       lines.push(`${it.label}: ${it.amount.toLocaleString()}원 (쿠폰 ${couponDiscountRate}% 적용)`);
       lines.push(`- 원가 ${it.original.toLocaleString()}원`);
@@ -1470,7 +1507,9 @@ if (t.items.length === 0) {
 
 // 총액 (체크박스 제어)
 if (showQuoteHeader) {
-  lines.push(`총 견적 금액: ${t.total.toLocaleString()}원`);
+  lines.push(t.roomPending
+    ? "총 견적 금액: 객실 요금 확인 후 확정 (요금 미정 날짜 포함 또는 숙박일·박수 미입력)"
+    : `총 견적 금액: ${t.total.toLocaleString()}원`);
 }
 
 // 리프트권 정상가 발표 전 안내 (초이스) - 발표 후 이 블록을 지우세요
@@ -1640,7 +1679,8 @@ $("q_breakdown").textContent = lines.join("\n").trim();
             "q_clothHigh","q_clothPremium",
             "q_pad","q_helmet","q_helmetSet", "q_gloves", "q_room_silver","q_room_gold","q_room_royal"
         ].forEach(id => setCount(id, 0));
-        document.querySelectorAll(".roomPrice").forEach(i => i.value = "");
+        $("q_room_date").value = "";
+        $("q_room_nights").value = "1";
 
         setCount("q_lessonTeam", 0);
 
@@ -1796,7 +1836,8 @@ $("r_date").addEventListener("change", () => {
   document.getElementById(id)?.addEventListener("change", updateQuote);
 });
 $("r_liftUnknown").addEventListener("change", updateReserveOutput);
-    document.querySelectorAll(".roomPrice").forEach(i => i.addEventListener("input", updateQuote));
+    $("q_room_date").addEventListener("change", updateQuote);
+    $("q_room_nights").addEventListener("input", updateQuote);
 
     ["r_name","r_phone","r_memo"].forEach(id => {
       $(id).addEventListener("input", updateReserveOutput);
